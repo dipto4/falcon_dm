@@ -80,40 +80,41 @@ namespace falcon::forces {
 
     } 
     inline void PN1Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,  falcon::Nbodysystem &system) {
-        real_t INV_C2 = (1.)/(C*C);
-        real_t vi[3], vj[3];
+        real_t C_FACTOR = 1./pow(system.get_C(),type);
 
+        real_t v1[3], v2[3];
+        bool use_w = p1.use_w || p2.use_w;
         if(use_w) {
             for(int d=0;d<3;d++) {
-                vi[d] = parti.w[d];
-                vj[d] = partj.w[d];
+                v1[d] = p1.w[d];
+                v2[d] = p2.w[d];
             }
         } else {
             for(int d=0; d<3;d++) {
-                vi[d] = parti.vel[d];
-                vj[d] = partj.vel[d];
+                v1[d] = p1.vel[d];
+                v2[d] = p2.vel[d];
             }
         }
 
 
-        real_t dr[3] = {partj.pos[0]-parti.pos[0],partj.pos[1]-parti.pos[1],partj.pos[2]-parti.pos[2]};
-        real_t dv[3] = {vj[0]-vi[0],vj[1]-vi[1],vj[2]-vi[2]};
+        real_t dr[3] = {p2.pos[0]-p1.pos[0],p2.pos[1]-p1.pos[1],p2.pos[2]-p1.pos[2]};
+        real_t dv[3] = {v2[0]-v1[0],v2[1]-v1[1],v2[2]-v1[2]};
 
         real_t dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
         real_t r2 = dr2;
         real_t r = sqrt(dr2);
         real_t n[3] = {-dr[0]/r,-dr[1]/r,-dr[2]/r};
 
-        real_t v1s = vi[0] * vi[0] + vi[1] * vi[1] + vi[2] * vi[2];
+        real_t v1s = v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2];
         //real_t v2s = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
-        real_t v2s = vj[0] * vj[0] + vj[1] * vj[1] + vj[2] * vj[2];
-        real_t v12 = vi[0] * vj[0] + vi[1] * vj[1] + vi[2] * vj[2];
+        real_t v2s = v2[0] * v2[0] + v2[1] * v2[1] + v2[2] * v2[2];
+        real_t v12 = v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
 
-        real_t nv1 = n[0] * vi[0] + n[1] * vi[1] + n[2] * vi[2];
+        real_t nv1 = n[0] * v1[0] + n[1] * v1[1] + n[2] * v1[2];
         //real_t nv1 = n[0] * dv[0] + n[1] * dv[1] + n[2] * dv[2];
-        real_t nv2 = n[0] * vj[0] + n[1] * vj[1] + n[2] * vj[2];
-        real_t gmr1 = parti.mass / r;
-        real_t gmr2 = partj.mass / r;
+        real_t nv2 = n[0] * v2[0] + n[1] * v2[1] + n[2] * v2[2];
+        real_t gmr1 = p1.mass / r;
+        real_t gmr2 = p2.mass / r;
 
         real_t Ai = -v1s - 2 * v2s + 4 * v12 + 1.5 * nv2 * nv2 + 5 * gmr1 + 4 * gmr2;
         real_t Aj = -v2s - 2 * v1s + 4 * v12 + 1.5 * nv1 * nv1 + 5 * gmr2 + 4 * gmr1;
@@ -121,19 +122,19 @@ namespace falcon::forces {
         real_t Bi = 4 * nv1 - 3 * nv2;
         real_t Bj = -4 * nv2 + 3 * nv1;
 
-        real_t coef = (1.0 / r2) * INV_C2;
+        real_t coef = (1.0 / r2) * C_FACTOR;
         real_t a_com[3] = {0.0,0.0,0.0};
         for(int d=0;d<3;d++) {
-            acc_pn_i[d] += (coef * partj.mass) * (Ai * n[d] - Bi * dv[d]);
-            acc_pn_j[d] -= (coef * parti.mass) * (Aj * n[d] - Bj * dv[d]);
+            p1.acc_pn[d] += (coef * p2.mass) * (Ai * n[d] - Bi * dv[d]);
+            p1.acc_pn[d] -= (coef * p1.mass) * (Aj * n[d] - Bj * dv[d]);
 
-            a_com[d] = (parti.mass*acc_pn_i[d] + partj.mass*acc_pn_j[d])/(parti.mass + partj.mass);
+            a_com[d] = (p1.mass*p1.acc_pn[d] + p2.mass*p2.acc_pn[d])/(p1.mass + p2.mass);
 
         }
 
         for(size_t d=0;d<3;d++) {
-            acc_pn_i[d] -= a_com[d];//coef * (Ai * n[d] - Bi * dv[d]);
-            acc_pn_j[d] -= a_com[d];//coef * (Aj * n[d] - Bj * dv[d]);
+            p1.acc_pn[d] -= a_com[d];//coef * (Ai * n[d] - Bi * dv[d]);
+            p2.acc_pn[d] -= a_com[d];//coef * (Aj * n[d] - Bj * dv[d]);
 
             //a_com[d] = (parti.mass*acc_pn_i[d] + partj.mass*acc_pn_j[d])/(parti.mass + partj.mass);
         }
@@ -142,23 +143,23 @@ namespace falcon::forces {
 
     }
     inline void PN2Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,  falcon::Nbodysystem &system) {
-        real_t INV_C2 = (1.)/(C*C);
-        real_t INV_C4 = INV_C2 * INV_C2;
-        real_t vi[3], vj[3];
+        real_t C_FACTOR = 1./pow(system.get_C(),type);
 
+        real_t v1[3], v2[3];
+        bool use_w = p1.use_w || p2.use_w;
         if(use_w) {
             for(int d=0;d<3;d++) {
-                vi[d] = parti.w[d];
-                vj[d] = partj.w[d];
+                v1[d] = p1.w[d];
+                v2[d] = p2.w[d];
             }
         } else {
             for(int d=0; d<3;d++) {
-                vi[d] = parti.vel[d];
-                vj[d] = partj.vel[d];
+                v1[d] = p1.vel[d];
+                v2[d] = p2.vel[d];
             }
         }
-        real_t dr[3] = {partj.pos[0]-parti.pos[0],partj.pos[1]-parti.pos[1],partj.pos[2]-parti.pos[2]};
-        real_t dv[3] = {vj[0]-vi[0],vj[1]-vi[1],vj[2]-vi[2]};
+        real_t dr[3] = {p2.pos[0]-p1.pos[0],p2.pos[1]-p1.pos[1],p2.pos[2]-p1.pos[2]};
+        real_t dv[3] = {v2[0]-v1[0],v2[1]-v1[1],v2[2]-v1[2]};
 
         //real_t dv[3] = {partj.vel[0]-parti.vel[0],partj.vel[1]-parti.vel[1],partj.vel[2]-parti.vel[2]};
 
@@ -167,24 +168,24 @@ namespace falcon::forces {
         real_t r = sqrt(dr2);
         real_t n[3] = {-dr[0]/r,-dr[1]/r,-dr[2]/r};
 
-        real_t v1s = vi[0] * vi[0] + vi[1] * vi[1] + vi[2] * vi[2];
+        real_t v1s = v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2];
         real_t v1q = v1s * v1s;
         //real_t v2s = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
-        real_t v2s = vj[0] * vj[0] + vj[1] * vj[1] + vj[2] * vj[2];
+        real_t v2s = v2[0] * v2[0] + v2[1] * v2[1] + v2[2] * v2[2];
         real_t v2q = v2s * v2s;
-        real_t v12 = vi[0] * vj[0] + vi[1] * vj[1] + vi[2] * vj[2];
+        real_t v12 = v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
 
-        real_t nv1 = n[0] * vi[0] + n[1] * vi[1] + n[2] * vi[2];
+        real_t nv1 = n[0] * v1[0] + n[1] * v1[1] + n[2] * v1[2];
         real_t nv1s = nv1 * nv1;
         //real_t nv1 = n[0] * dv[0] + n[1] * dv[1] + n[2] * dv[2];
-        real_t nv2 = n[0] * vj[0] + n[1] * vj[1] + n[2] * vj[2];
+        real_t nv2 = n[0] * v2[0] + n[1] * v2[1] + n[2] * v2[2];
         real_t nv2s = nv2 * nv2;
-        real_t gmr1 = parti.mass / r;
-        real_t gmr2 = partj.mass / r;
+        real_t gmr1 = p1.mass / r;
+        real_t gmr2 = p2.mass / r;
 
-        real_t m1s = parti.mass * parti.mass;
-        real_t m2s = partj.mass * partj.mass;
-        real_t m12 = parti.mass * partj.mass;
+        real_t m1s = p1.mass * p1.mass;
+        real_t m2s = p2.mass * p2.mass;
+        real_t m12 = p1.mass * p2.mass;
 
         real_t Ai = -2 * v2q + 4 * v2s * v12 - 2 * v12 * v12 +
             nv2s * (1.5 * v1s + 4.5 * v2s - 6 * v12 - 1.875 * nv2s) +
@@ -204,30 +205,29 @@ namespace falcon::forces {
         real_t Bj = -v2s * nv1 - 4 * v1s * nv2 + 5 * v1s * nv2 + 4 * v12 * nv2 - 4 * v12 * nv1 + 6 * nv2 * nv1s -
             4.5 * nv1 * nv1s + gmr2 * (15.75 * nv2 - 13.75 * nv1) + gmr1 * (2 * nv2 + 2 * nv1);
 
-        real_t coef = 1.0 / dr2 * INV_C4;
+        real_t coef = 1.0 / dr2 * C_FACTOR;
         real_t a_com[3] = {0.0,0.0,0.0};
         for(int d=0;d<3;d++) {
-            acc_pn_i[d] += (coef * partj.mass) * (Ai * n[d] - Bi * dv[d]);
-            acc_pn_j[d] -= (coef * parti.mass) * (Aj * n[d] - Bj * dv[d]);
+            p1.acc_pn[d] += (coef * p2.mass) * (Ai * n[d] - Bi * dv[d]);
+            p2.acc_pn[d] -= (coef * p1.mass) * (Aj * n[d] - Bj * dv[d]);
 
-            a_com[d] = (parti.mass*acc_pn_i[d] + partj.mass*acc_pn_j[d])/(parti.mass + partj.mass);
+            a_com[d] = (p1.mass*p1.acc_pn[d] + p2.mass*p2.acc_pn[d])/(p1.mass + p2.mass);
 
         }
 
         for(size_t d=0;d<3;d++) {
-            acc_pn_i[d] -= a_com[d];//coef * (Ai * n[d] - Bi * dv[d]);
-            acc_pn_j[d] -= a_com[d];//coef * (Aj * n[d] - Bj * dv[d]);
+            p1.acc_pn[d] -= a_com[d];//coef * (Ai * n[d] - Bi * dv[d]);
+            p2.acc_pn[d] -= a_com[d];//coef * (Aj * n[d] - Bj * dv[d]);
 
         }
 
 
     }
     inline void PN25Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,  falcon::Nbodysystem &system) {
-        real_t C_FACTOR = pow(system.get_C(),type);
+        real_t C_FACTOR = 1./pow(system.get_C(),type);
 
         real_t v1[3], v2[3];
         /*needed for the auxiliary velocity algorithm*/
-        // TODO: Modify the particle struct to include a use_w bool variable
         bool use_w = p1.use_w || p2.use_w;
         if(use_w) {
             for(int d=0;d<3;d++) {
@@ -263,16 +263,16 @@ namespace falcon::forces {
         real_t coef = (4.0/5.0)  * p1.mass * p2.mass / (r2 * r) * C_FACTOR;
         real_t a_com[3] = {0.0,0.0,0.0};
         for(size_t d=0;d<3;d++) {
-            acc_pn_i[d] += coef * (Ai * n[d] - Bi * dv[d]);
-            acc_pn_j[d] -= coef * (Aj * n[d] - Bj * dv[d]);
+            p1.acc_pn[d] += coef * (Ai * n[d] - Bi * dv[d]);
+            p2.acc_pn[d] -= coef * (Aj * n[d] - Bj * dv[d]);
 
-            a_com[d] = (p1.mass*acc_pn_i[d] + p2.mass*acc_pn_j[d])/(p1.mass + p2.mass);
+            a_com[d] = (p1.mass*p1.acc_pn[d] + p2.mass*p2.acc_pn[d])/(p1.mass + p2.mass);
         }
         // This is a quick fix for centering the object at the CoM every step. Performed tests to ensure that results do not
         // change due to this fix
         for(size_t d=0;d<3;d++) {
-            acc_pn_i[d] -= a_com[d];
-            acc_pn_j[d] -= a_com[d];//
+            p1.acc_pn[d] -= a_com[d];
+            p2.acc_pn[d] -= a_com[d];//
 
         }
 
