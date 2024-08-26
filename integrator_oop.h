@@ -56,7 +56,7 @@ namespace falcon::integrator {
             void kick_sync(struct falcon::particles::particle_system s, real_t dt);
             void kick_sync_w(struct falcon::particles::particle_system s, real_t dt);
             void kick_pn(struct falcon::particles::particle_system s1, 
-                    struct falcon::particles::particle_system s2, size_t pi, size_t pj);
+                    struct falcon::particles::particle_system s2, size_t pi, size_t pj, bool use_w);
 
             void findtimesteps(struct falcon::particles::particle_system s);
 
@@ -264,8 +264,29 @@ namespace falcon::integrator {
     }
 
     inline void GenericHHSIntegrator::kick_pn(struct falcon::particles::particle_system s1, 
-            struct falcon::particles::particle_system s2, size_t pi, size_t pj) {
+            struct falcon::particles::particle_system s2, size_t pi, size_t pj, bool use_w) {
 
+        s1.part[pi].acc_pn[0] = 0.0; s1.part[pi].acc_pn[1] = 0.0; s1.part[pi].acc_pn[2] = 0.0;   
+        s2.part[pj].acc_pn[0] = 0.0; s2.part[pj].acc_pn[1] = 0.0; s2.part[pj].acc_pn[2] = 0.0;   
+
+        s1.part[pi].use_w = use_w;
+        s2.part[pj].use_w = use_w;
+
+        if (system->use_precession()) {
+            f = new falcon::forces::PN1Force();
+            f->calculateForce(s1.part[pi], s2.part[pj], *system);
+            delete f;
+
+            f = new falcon::forces::PN2Force();
+            f->calculateForce(s1.part[pi], s2.part[pj], *system);
+            delete f;
+        }
+
+        if (system->use_radiation()) {
+            f = new falcon::forces::PN25Force();
+            f->calculateForce(s1.part[pi], s2.part[pj], *system);
+            delete f;
+        }
     }
 
     inline void GenericHHSIntegrator::findtimesteps(struct falcon::particles::particle_system s) {
@@ -387,35 +408,32 @@ namespace falcon::integrator {
                 kick_sf(fast, slow, dt, &includes_bh_sf, &parti_pn, &partj_pn);
             }
 
+            // Check Hellstrom and Mikkola (2010) for the integration scheme
+            if((includes_bh_self || includes_bh_sf )&& system->use_pn()) {
+                if(includes_bh_self)
+                    kick_pn(slow, slow, parti_pn, partj_pn,false);
+                else if(includes_bh_sf)
+                    kick_pn(fast,slow,parti_pn,partj_pn,false);
 
-            /*if((includes_bh_self || includes_bh_sf )&& system->use_pn()) {
-            //this is where the magic goes in
-            if(includes_bh_self)
-            kick_pn(slow, slow, parti_pn, partj_pn,false);
-            else if(includes_bh_sf)
-            kick_pn(fast,slow,parti_pn,partj_pn,false);
-
-            }*/
+            }
             kick_sync_w(total, dt/2.);
 
-            /*if((includes_bh_self || includes_bh_sf )&& ext->include_pn) {
-            //this is where the magic goes in
-            if(includes_bh_self)
-            kick_pn(slow, slow, parti_pn, partj_pn,true);
-            else if(includes_bh_sf)
-            kick_pn(fast,slow,parti_pn,partj_pn,true);
-            }*/
+            if((includes_bh_self || includes_bh_sf )&& system->use_pn()) {
+                if(includes_bh_self)
+                    kick_pn(slow, slow, parti_pn, partj_pn,true);
+                else if(includes_bh_sf)
+                    kick_pn(fast,slow,parti_pn,partj_pn,true);
+            }
 
             kick_sync(total, dt);
 
-            /*if((includes_bh_self || includes_bh_sf )&& ext->include_pn) {
-            //this is where the magic goes in
-            if(includes_bh_self)
-            kick_pn(slow, slow, parti_pn, partj_pn,false);
-            else
-            kick_pn(fast,slow,parti_pn,partj_pn,false);
+            if((includes_bh_self || includes_bh_sf )&& system->use_pn()) {
+                if(includes_bh_self)
+                    kick_pn(slow, slow, parti_pn, partj_pn,false);
+                else
+                    kick_pn(fast,slow,parti_pn,partj_pn,false);
 
-            }*/
+            }
             kick_sync_w(total,dt/2.);
 
         }
