@@ -79,6 +79,7 @@ namespace falcon {
         real_t t_end {};
         real_t simtime {};
         real_t dt {};
+        real_t C {};
         //real_t eta_ext {}; 
         size_t n {};
         std::string filename;
@@ -136,6 +137,7 @@ namespace falcon {
             bool use_precession() {return include_precession;}
             bool use_radiation() {return include_radiation;}
             real_t get_simtime() {return simtime;}
+            real_t get_C() {return C;}
             void set_simtime(real_t update) {simtime = update;}
             //void get_n();
             

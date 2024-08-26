@@ -32,7 +32,7 @@ namespace falcon::integrator {
              * one that consists of w (auxiliary velocity) terms and one that does not*/
             falcon::Nbodysystem *system;
             falcon::particles::particle_system *partsys;
-            //falcon::forces::GenericForce *f;
+            falcon::forces::GenericForce *f;
             bool handle_pn {};
             /*some functions common to HHS integrators follow*/
             falcon::particles::particle_system join(struct falcon::particles::particle_system sinks, 
@@ -56,7 +56,7 @@ namespace falcon::integrator {
             void kick_sync(struct falcon::particles::particle_system s, real_t dt);
             void kick_sync_w(struct falcon::particles::particle_system s, real_t dt);
             void kick_pn(struct falcon::particles::particle_system s1, 
-                    struct falcon::particles::particle_system s2, size_t pi, size_t pj, bool use_w);
+                    struct falcon::particles::particle_system s2, size_t pi, size_t pj);
 
             void findtimesteps(struct falcon::particles::particle_system s);
 
@@ -75,7 +75,7 @@ namespace falcon::integrator {
             void integrate() {
                 if(system->get_dt()==0)
                     return;
-                
+
                 size_t clevel = 0;
                 real_t dt = system->get_dt();
                 real_t simtime = system->get_simtime();
@@ -168,36 +168,17 @@ namespace falcon::integrator {
     }
 
     inline void GenericHHSIntegrator::kick_self(struct falcon::particles::particle_system sinks, bool *includes_bh, size_t *parti_pn, size_t *partj_pn) {
+
+        f = new falcon::forces::NewtonianForce();
+
         for(size_t i=0; i<sinks.n; i++) {
-            real_t acc[3] = {0.0,0.0,0.0};
-            //#pragma omp parallel for if(sinks.part[i].id==0 && sinks.n > 100) reduction(+:acc)
+            sinks.part[i].acc[0] = 0.0; sinks.part[i].acc[1] = 0.0; sinks.part[i].acc[2] = 0.0;
             for(size_t j=0; j<sinks.n; j++) {
                 if((sinks.part[i].id == sinks.part[j].id) || (sinks.part[j].id > 1 && sinks.part[i].id > 1))
                     continue;
 
-                real_t dr3, dr2, dr;
+                f->calculateForce(sinks.part[i], sinks.part[j], *system);
 
-                real_t dx[3];
-
-                for(size_t d=0;d<3;d++) {
-                    dx[d] = (sinks.part[i].pos[d]-sinks.part[j].pos[d]);
-
-                }
-                dr2 = dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2];
-                if(sinks.part[i].id > 1 || sinks.part[j].id>1)
-                {
-                    // only soften the encounters between central IMBH + DM particle
-                    if((sinks.part[i].id == 0) || (sinks.part[j].id == 0))
-                        dr2 += system->get_soft()*system->get_soft();
-                }
-                //dr2 += EPS*EPS;
-                dr = sqrt(dr2);
-                dr3 = dr * dr2;
-                dr = sinks.part[j].mass / dr3;
-
-                acc[0] += -dx[0] * dr;
-                acc[1] += -dx[1] * dr;
-                acc[2] += -dx[2] * dr;
                 if((sinks.part[i].id==0 && sinks.part[j].id==1) || (sinks.part[i].id==1 && sinks.part[j].id==0)) {
                     *includes_bh = true;
                     *parti_pn = i;
@@ -207,14 +188,14 @@ namespace falcon::integrator {
 
 
 
-            for(size_t d=0;d<3;d++) {
-                sinks.part[i].acc[d] = acc[d];
-                sinks.part[i].acc_pn[d] = 0.0;
-            }
+            /*for(size_t d=0;d<3;d++) {
+              sinks.part[i].acc[d] = acc[d];
+              sinks.part[i].acc_pn[d] = 0.0;
+              }*/
 
         }
 
-
+        delete f;
 
 
     }
@@ -224,37 +205,17 @@ namespace falcon::integrator {
             real_t dt, bool *includes_bh, size_t *parti_pn, size_t *partj_pn) {
         // sources -> sinks first
         // sinks -> sources second
+
+        f = new falcon::forces::NewtonianForce();
+
         for(size_t i=0; i<sinks.n ; i++) {
-            real_t acc[3] = {0.0,0.0,0.0};
-            //#pragma omp parallel for if(sinks.part[i].id==0 && sinks.n * sources.n > 1000) reduction(+:acc)
+            sinks.part[i].acc[0] = 0.0; sinks.part[i].acc[1] = 0.0; sinks.part[i].acc[2] = 0.0;
+
             for(size_t j=0; j<sources.n; j++) {
                 if(sinks.part[i].id > 1 && sources.part[j].id > 1)
                     continue;
 
-                real_t dr3, dr2, dr;
-
-                real_t dx[3];
-
-                for(size_t d=0;d<3;d++) {
-                    dx[d] = (sinks.part[i].pos[d]-sources.part[j].pos[d]);
-
-                }
-                dr2 = dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2];
-                //only soften the ecnounter between IMBH + DM particle
-                if((sinks.part[i].id > 1) || (sources.part[j].id > 1)) {
-                    if((sinks.part[i].id == 0) || (sources.part[j].id == 0) )
-                        dr2 += system->get_soft()*system->get_soft();
-                }
-                //dr2 += EPS*EPS;
-
-                dr = sqrt(dr2);
-                dr3 = dr * dr2;
-                dr = sources.part[j].mass / dr3;
-
-                acc[0] += -dx[0] * dr;
-                acc[1] += -dx[1] * dr;
-                acc[2] += -dx[2] * dr;
-
+                f->calculateForce(sinks.part[i],sources.part[j], *system);
                 if((sinks.part[i].id==0 && sources.part[j].id==1) || (sinks.part[i].id==1 && sources.part[j].id==0)) {
                     *includes_bh = true;
                     *parti_pn = i;
@@ -266,18 +227,17 @@ namespace falcon::integrator {
 
             }
 
-            for(size_t d=0;d<3;d++) {
-                sinks.part[i].acc[d] = acc[d];
-                sinks.part[i].acc_pn[d] = 0.0;
-            }
+            /*for(size_t d=0;d<3;d++) {
+              sinks.part[i].acc_pn[d] = 0.0;
+              }*/
 
         } 
 
+        delete f;
 
     }
 
     inline void GenericHHSIntegrator::drift(struct falcon::particles::particle_system s, real_t dt) {
-        //#pragma omp parallel for if(s.n>1000)
         for(size_t i=0;i<s.n;i++) {
             for(size_t d=0;d<3;d++) {
                 s.part[i].pos[d] += dt * s.part[i].vel[d];
@@ -304,7 +264,7 @@ namespace falcon::integrator {
     }
 
     inline void GenericHHSIntegrator::kick_pn(struct falcon::particles::particle_system s1, 
-            struct falcon::particles::particle_system s2, size_t pi, size_t pj, bool use_w) {
+            struct falcon::particles::particle_system s2, size_t pi, size_t pj) {
 
     }
 
@@ -387,15 +347,12 @@ namespace falcon::integrator {
                 handle_pn = true;
             }
 
-            /*void integrate() {
-                if (system->get_dt()); 
-            }*/
-           
+
     };
 
     inline void HOLD_DKD::step(size_t clevel, falcon::particles::particle_system total,
             real_t stime, real_t etime, real_t dt, bool calc_timestep) {
-        
+
         falcon::particles::particle_system slow = {0,nullptr,nullptr}, fast = {0,nullptr,nullptr};
         bool includes_bh_self = false, includes_bh_sf = false; //BH-BH interaction either present in S or F
         size_t parti_pn, partj_pn;
@@ -404,90 +361,73 @@ namespace falcon::integrator {
         }
 
         split(dt, total, &slow, &fast);
-        
+
         if(fast.n == 0)
         {
             system->set_simtime( system->get_simtime()+ dt);
-        //printf("%.16e %16e %.16e\n",total.part[1].pos[0],total.part[1].pos[1],total.part[1].pos[2]);
 #if DEBUG
             printf("level=%i, t=%g s=%d \n",clevel, diag->simtime, total.n);
             fflush(stdout);
 #endif
-    }
-
-    //hold for fast system
-    if(fast.n > 0)
-        step(clevel+1, fast, stime, stime+dt/2, dt/2, false);
-
-
-    if(slow.n > 0)
-        drift(slow, dt / 2);
-
-    if(slow.n > 0) { //kicksf in between
-        kick_self(slow,  &includes_bh_self, &parti_pn, &partj_pn);
-        //add pn terms here if both are in slow
-        if(fast.n > 0) {
-//#pragma omp parallel shared(slow,fast,dt) 
-            {
-//#pragma omp single
-                {
-//#pragma omp task if(total.n>256)
-                    kick_sf( slow, fast, dt, &includes_bh_sf, &parti_pn, &partj_pn);
-//#pragma omp task if(total.n>256)
-                    kick_sf(fast, slow, dt, &includes_bh_sf, &parti_pn, &partj_pn);
-//#pragma omp taskwait
-                }
-            }
-            //add pn terms here if one in slow and one in fast
         }
 
-        /*
-        }*/
+        //hold for fast system
+        if(fast.n > 0)
+            step(clevel+1, fast, stime, stime+dt/2, dt/2, false);
 
-        /*if((includes_bh_self || includes_bh_sf )&& system->use_pn()) {
+
+        if(slow.n > 0)
+            drift(slow, dt / 2);
+
+        if(slow.n > 0) { //kicksf in between
+            kick_self(slow,  &includes_bh_self, &parti_pn, &partj_pn);
+            //add pn terms here if both are in slow
+            if(fast.n > 0) {
+                kick_sf( slow, fast, dt, &includes_bh_sf, &parti_pn, &partj_pn);
+                kick_sf(fast, slow, dt, &includes_bh_sf, &parti_pn, &partj_pn);
+            }
+
+
+            /*if((includes_bh_self || includes_bh_sf )&& system->use_pn()) {
             //this is where the magic goes in
             if(includes_bh_self)
-                kick_pn(slow, slow, parti_pn, partj_pn,false);
+            kick_pn(slow, slow, parti_pn, partj_pn,false);
             else if(includes_bh_sf)
-                kick_pn(fast,slow,parti_pn,partj_pn,false);
+            kick_pn(fast,slow,parti_pn,partj_pn,false);
 
-        }*/
-        kick_sync_w(total, dt/2.);
+            }*/
+            kick_sync_w(total, dt/2.);
 
-        /*if((includes_bh_self || includes_bh_sf )&& ext->include_pn) {
+            /*if((includes_bh_self || includes_bh_sf )&& ext->include_pn) {
             //this is where the magic goes in
             if(includes_bh_self)
-                kick_pn(slow, slow, parti_pn, partj_pn,true);
+            kick_pn(slow, slow, parti_pn, partj_pn,true);
             else if(includes_bh_sf)
-                kick_pn(fast,slow,parti_pn,partj_pn,true);
-        }*/
+            kick_pn(fast,slow,parti_pn,partj_pn,true);
+            }*/
 
-        kick_sync(total, dt);
+            kick_sync(total, dt);
 
-        /*if((includes_bh_self || includes_bh_sf )&& ext->include_pn) {
+            /*if((includes_bh_self || includes_bh_sf )&& ext->include_pn) {
             //this is where the magic goes in
             if(includes_bh_self)
-                kick_pn(slow, slow, parti_pn, partj_pn,false);
+            kick_pn(slow, slow, parti_pn, partj_pn,false);
             else
-                kick_pn(fast,slow,parti_pn,partj_pn,false);
+            kick_pn(fast,slow,parti_pn,partj_pn,false);
 
-        }*/
-        kick_sync_w(total,dt/2.);
+            }*/
+            kick_sync_w(total,dt/2.);
+
+        }
+
+        if(slow.n > 0)
+            drift( slow,  dt / 2);
+        //hold for fast system
+        if(fast.n > 0)
+            step(clevel+1, fast, stime+dt/2, etime, dt/2, true);
+
 
     }
 
-    if(slow.n > 0)
-        drift( slow,  dt / 2);
-    //hold for fast system
-    if(fast.n > 0)
-        step(clevel+1, fast, stime+dt/2, etime, dt/2, true);
-
-
-    }
-
-    /* fourth order but can only handle PN2.5 (for now) */
-    class HHS_FSI : public GenericHHSIntegrator {
-
-    };
 
 }
