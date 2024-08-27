@@ -292,7 +292,8 @@ namespace falcon::integrator {
      * Outputs: None
      *
      *
-     * The name of the function is somewhat of a misnomer. This is the main function that calls the newtonian
+     * The name of the function is somewhat of a misnomer since the kick operation is not actually
+     * performed in this function. However, this is the main function that calls the newtonian
      * force calculation class. Full interactions are only calculated for the IMBH and the compact object which 
      * MUST BE THE FIRST AND SECOND PARTICLES IN THE INITIAL CONDITIONS FILE!
      *
@@ -328,6 +329,27 @@ namespace falcon::integrator {
 
     }
 
+/* -------------------------------------------------------------------------------
+     * Function: GenericHHSIntegrator::kick_sf
+     *
+     * Inputs: falcon::particles::particle_system (sinks to calculate the forces on, slow subsystem)
+     *         falcon::particles::particle_system (sources to calculate the forces from, fast subsystem)
+     *         bool * (see if the subsystem hosts the IMBH-CO pair)
+     *         size_t *(index of the first particle in the IMBH-CO pair)
+     *         size_t * (index of the second particle in the IMBH-CO pair)
+     *
+     * Outputs: None
+     *
+     *
+     * The name of the function is somewhat of a misnomer since the kick operation is not actually
+     * performed in this function. However, this is the main function that calls the newtonian
+     * force calculation class. Full interactions are only calculated for the IMBH and the compact object which 
+     * MUST BE THE FIRST AND SECOND PARTICLES IN THE INITIAL CONDITIONS FILE!
+     *
+     * Ideally the previous function kick_self and this function can be refractored into a single function
+     * Work is in progress to do that.
+     ---------------------------------------------------------------------------------*/
+
 
     inline void GenericHHSIntegrator::kick_sf(struct falcon::particles::particle_system sinks, struct falcon::particles::particle_system sources,
                                               real_t dt, 
@@ -362,7 +384,17 @@ namespace falcon::integrator {
         delete f;
 
     }
-
+    /* --------------------------------------------------------------------------
+     * Function: GenericHHSIntegrator::drift
+     *
+     * Inputs: falcon::particles::particle_system (particle system)
+     *         real_t (delta t for the drift calculations)
+     *
+     * Output: None
+     * 
+     * Performs a drift operation using the main velocity (not the auxiliary velocity) for the
+     * particles in system s
+     ----------------------------------------------------------------------------*/
     inline void GenericHHSIntegrator::drift(struct falcon::particles::particle_system s, real_t dt) {
         for(size_t i=0;i<s.n;i++) {
             for(size_t d=0;d<3;d++) {
@@ -372,6 +404,19 @@ namespace falcon::integrator {
 
     }
 
+
+    /* ------------------------------------------------------------------------
+     * Function: GenericHHSIntegrator::kick_sync
+     *
+     * Inputs: falcon::particles::particle_system s (particle system)
+     *         real_t (delta t for the kick calculation) 
+     * 
+     * Output: None
+     * Actually performs a kick operation for the physical velocity using the calculated acceleration (newtonian + pn)
+     * Called after the acceleration has been calculated using kick_self, kick_sf, and kick_pn functions
+     ---------------------------------------------------------------------------*/
+
+
     inline void GenericHHSIntegrator::kick_sync(struct falcon::particles::particle_system s, real_t dt) {
         for(size_t i=0;i<s.n;i++) {
             for(size_t d=0;d<3;d++) {     // add the newtonian and post newtonian part separately
@@ -379,6 +424,17 @@ namespace falcon::integrator {
             }
         }
     }
+/* ------------------------------------------------------------------------
+     * Function: GenericHHSIntegrator::kick_sync_w
+     *
+     * Inputs: falcon::particles::particle_system s (particle system)
+     *         real_t (delta t for the kick calculation) 
+     * 
+     * Output: None
+     * Actually performs a kick operation for the auxiliary velocity using the calculated acceleration (newtonian + pn)
+     * Called after the acceleration has been calculated using kick_self, kick_sf, and kick_pn functions
+     ---------------------------------------------------------------------------*/
+
 
     inline void GenericHHSIntegrator::kick_sync_w(struct falcon::particles::particle_system s, real_t dt) {
         for(size_t i=0;i<s.n;i++) {
@@ -388,6 +444,21 @@ namespace falcon::integrator {
         }
 
     }
+/* ------------------------------------------------------------------------
+     * Function: GenericHHSIntegrator::kick_pn
+     *
+     * Inputs: falcon::particles::particle_system  (particle system containing first object)
+     *         falcon::particles::particle_system (particle system containing second object)
+     *         size_t (index of particle pi)
+     *         size_t (index of particle pj)
+     *         bool (use the auxiliary velocity rather than the physical velocity)
+     * 
+     * Output: None
+     *
+     * Calculates the post newtonian forces for particles pi and pj. Written in this form
+     * since unsure if particles present in slow or fast subsystem. Can be improved significantly!
+     ---------------------------------------------------------------------------*/
+
 
     inline void GenericHHSIntegrator::kick_pn(struct falcon::particles::particle_system s1, 
             struct falcon::particles::particle_system s2, size_t pi, size_t pj, bool use_w) {
@@ -414,6 +485,19 @@ namespace falcon::integrator {
             delete f;
         }
     }
+
+    /*-----------------------------------------------------------------------------
+     * Function: GenericHHSIntegrator::findtimesteps
+     *
+     * Inputs: falcon::particles::particle_system (particle system to calculate the timesteps for)
+     * 
+     * Outputs: None
+     *
+     * Calculates symmetrized timesteps based on the prescription provided in Pelupessy et al. (2012)
+     * The timesteps are individual and adaptive. Check Rantala et al. (2021) for an alternative
+     * method to derive symmetrized timesteps
+     -------------------------------------------------------------------------------*/
+
 
     inline void GenericHHSIntegrator::findtimesteps(struct falcon::particles::particle_system s) {
         /*one would want the imbh and the compact object to have the saame timestep 
@@ -480,6 +564,22 @@ namespace falcon::integrator {
         s.part[part1].timestep=s.part[part0].timestep;
 
     }
+
+/*-----------------------------------------------------------------------------
+     * Function: HOLD_DKD::step
+     *
+     * Inputs: size_t (recursion level for the HOLD algorithm)
+     *         falcon::particles::particle_system (system on which we are performing the
+     *         HOLD algorithm)
+     *         real_t (start time of the step)
+     *         real_t (end time of the step)
+     *         real_t (delta t or the timestep over which this particular step is being performed)
+     *         bool (calculate timestep or use the previous values)
+     * 
+     * Outputs: None
+     *
+     * Performs one step of the HOLD-DKD algorithm to integrate the system from stime to etime
+     -------------------------------------------------------------------------------*/
 
 
 
