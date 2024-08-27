@@ -1,7 +1,26 @@
+/* --------------------------------------------------------------------------------------------------
+ * Filename: io.h
+ * 
+ * Purpose: Handles all the important input/output operations, including reading/writing snapshots
+ *          and reading config.ini
+ *          NOTE: You need the boost library to be able to use the IO operations
+ *          Boost is utilized to read ini files
+ *
+ * Main functions:
+ *
+ * std::tuple<std::string, int, real_t, real_t, real_t, bool, bool, bool, real_t, real_t> read_config()
+ *
+ * read_hdf5_snapshot(std::string input_fname, int *snapnum, real_t *t_now,struct falcon::particles::particle_system *s)
+ *
+ * write_hdf5_snapshot(int snapshot_num, real_t t_now,struct falcon::particles::particle_system s)
+ *
+ * std::tuple<int, real_t> load_data(struct falcon::particles::particle_system *s, const size_t restart_val, std::string input_fname)
+ *
+ --------------------------------------------------------------------------------------------------*/
 #pragma once
 
-#include <numeric>		// std::iota
-#include <algorithm>		// sort
+#include <numeric>		
+#include <algorithm>		
 #include "falcon.h"
 #include "particle.h"
 #include "hdf5.h"
@@ -14,22 +33,28 @@
 namespace falcon::io
 {
 
-    /* Return values are <filename, restart_val, eta, t_end, dt, use_pn, use_precession, use_radiation, c, soft>*/ 
+
+    /* ---------------------------------------------------------------------------------
+     * Function: std::tuple<std::string, int, real_t, real_t, real_t, bool, bool, bool, real_t, real_t> read_config()
+     * 
+     * Input: None (reads directly from the config.ini file. The config.ini MUST BE in the simulation directory)
+     * Output: Tuple of type <std::string, int, real_t, real_t, real_t, bool, bool, bool, real_t, real_t>
+     *         containing values of <filename, restart_val, eta, t_end, dt, use_pn, use_precession, use_radiation, c, soft>
+     -----------------------------------------------------------------------------------*/
+
+
     std::tuple<std::string, int, real_t, real_t, real_t, bool, bool, bool, real_t, real_t> read_config() {
 
 
         //check if config.ini exists
 
-        //bool fileexists = std::filesystem::exists("config.ini");
 
-        /*if(!fileexists) {
-          std::cout<<"ERROR: config.ini does not exist! Please refer to the documentation to read how to make a proper config file!"<<std::endl;
-          std::cout<<"Falcon exiting!"<<std::endl;
-          exit(1);
-          }*/
 
         boost::property_tree::ptree pt;
 
+        /* The code tries to read from a file called config.ini. If it is not present, the code CANNOT be run! 
+         * Check the documentation to see how to write a config.ini file
+         * */
         try {
 
             boost::property_tree::ini_parser::read_ini("config.ini", pt);
@@ -58,6 +83,19 @@ namespace falcon::io
 
         return {input_fname, restart_val, eta,t_end,dt,use_pn,use_precession, use_radiation, c, soft};
     }
+
+
+
+    /* -----------------------------------------------------------------------------------
+     * Function: read_hdf5_snapshot(std::string input_fname, int *snapnum, real_t *t_now,struct falcon::particles::particle_system *s)
+     *
+     * Inputs: std::string (input filename)
+     *         int* (pointer to the snapnumber that we are trying to read in case of a restart)
+     *         real_t* (pointer to the current time from the restart file)
+     *         falcon::particles::particle_system* (pointer to the particle system to read in from the restart file)
+     * Output: None/void (particle dataset is loaded on to the passed array)
+     --------------------------------------------------------------------------------------*/
+
     /* returns the snapnum and t_now*/
     void read_hdf5_snapshot(std::string input_fname, int *snapnum, real_t *t_now,struct falcon::particles::particle_system *s)
     {
@@ -153,7 +191,14 @@ namespace falcon::io
         fflush(stdout);
     }
 
-
+    /*-----------------------------------------------------------------------------------
+     * Function: write_hdf5_snapshot(int snapshot_num, real_t t_now,struct falcon::particles::particle_system s)
+     *
+     * Inputs: int (snapshot number of the HDF5 file)
+     *         real_t (current time)
+     *         falcon::particles::particle_system (particle system to write to the HDF5 file)
+     * Outputs: None
+     --------------------------------------------------------------------------------------*/
     void write_hdf5_snapshot(int snapshot_num, real_t t_now,struct falcon::particles::particle_system s)
     {
         size_t numBodies = s.n;
@@ -299,7 +344,15 @@ namespace falcon::io
         if(status < 0)
             printf("Writing snapshot error\n");
     }
-
+    /*-------------------------------------------------------------------------------------
+     * Function: std::tuple<int, real_t> load_data(struct falcon::particles::particle_system *s, const size_t restart_val, std::string input_fname)
+     *
+     * Inputs: struct falcon::particles::particle_system * (pointer to the particle system)
+     *         const size_t (if restarting then the number of the snapshot to restart from)
+     *         std::string (filename of the initial conditions)
+     * Output: std::tuple<int, real_t> (returns the snapshot number from the restart file and the current time which is required for future IO)
+     *         
+     --------------------------------------------------------------------------------------*/
     std::tuple<int, real_t> load_data(struct falcon::particles::particle_system *s, const size_t restart_val, std::string input_fname) {
         int snapnum {0};
         real_t t_now {0.0};
