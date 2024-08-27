@@ -1,9 +1,46 @@
+/* ------------------------------------------------------------------------------
+ * Filename: forces.h
+ * 
+ * Purpose: Handles all pairwise forces including Newtonian and Post-Newtonian forces
+ *          NOTE: PN forces are only enabled for the IMBH and compact object
+ *          NOTE: The IMBH MUST be the first particle in the initial conditions file
+ *                and the compact object MUST be the second particle in the IC file
+ *                Otherwise the force calculation will be WRONG!
+ * Main classes:
+ * class GenericForce
+ * class NewtonianForce (derived class of type GenericForce)
+ * class PN1Force ((derived class of type GenericForce))
+ * class PN2Force (derived class of type GenericForce)
+ * class PN25Force (derived class of type GenericForce)
+ *
+ * NOTE: Additional forces should extend GenericForce class 
+ *
+ * Main functions:
+ * virtual void calculateForce(struct falcon::particles::particle &pi, struct falcon::particles::particle &pj,  falcon::Nbodysystem &system) [pure virtual function that is defined in each of the inherited classes]
+ ---------------------------------------------------------------------------------*/
+
+
+
+
 #pragma once
 #include<cmath>
 #include "falcon.h"
 #include "particle.h"
 namespace falcon::forces {
-
+    /*-----------------------------------------------------------------------
+     * Class: GenericForce
+     *
+     * Description: Abstract class for extending different types of pairwise encounters
+     *              New pairwise interaction should inhert this class.
+     *
+     * Members: const int type -> controls the factor of c (speed of light) involved in the force calculation
+     *                            0 for newtonian but non-zero for post-newtonian (2 for PN1 for example)
+     *                            
+     * Member functions: 
+     * virtual void calculateForce(struct falcon::particles::particle &pi, struct falcon::particles::particle &pj,  falcon::Nbodysystem &system)
+     *                        -> pure virtual function that must be defined in each of the inherited classes. This is the main member function
+     *                        that actually calculates the force
+     ------------------------------------------------------------------------*/
     class GenericForce {
         protected:
             const int type {} ;
@@ -16,6 +53,19 @@ namespace falcon::forces {
                     struct falcon::particles::particle &pj,  falcon::Nbodysystem &system) = 0;
     };
 
+
+
+    /*------------------------------------------------------------------------
+     * Class: NewtonianForce
+     *
+     * Description: derived class from the abstract class GenericForce. Calculates the Newtonian interactions between two particles
+     *
+     * NOTE: Full force calculations are ONLY performed for the IMBH and the compact object. These two particles MUST BE THE FIRST
+     *       TWO PARTICLES IN THE INITIAL CONDITIONS FILE. OTHERWISE THE FORCE CALCULATIONS ARE GOING TO BE WRONG! This was done in
+     *       order to streamline the reduced force calculation and speed up the simulation.
+     *
+     * 
+     -------------------------------------------------------------------------*/
     class NewtonianForce : public GenericForce {
 
         public:
@@ -25,6 +75,30 @@ namespace falcon::forces {
             virtual void calculateForce(struct falcon::particles::particle &pi,
                     struct falcon::particles::particle &pj, falcon::Nbodysystem &system);
     };
+    
+    
+    /*----------------------------------------------------------------------------
+     * Class: PN1Force
+     *
+     * IMPORTANT NOTE:
+     *               In the three following classes we compute the post-Newtonian forces between any two sets of particles
+     *               The equations are broadly derived following equation 203 from Blanchet (2014). Please refer to that in
+     *               case you have any issues understanding the force calculation terms.
+     *
+     *               The organization of the post-Newtonian forces in this work has been inspired by the publicly available
+     *               code SpaceHub (Yihan Wang et al. 2021). Although our implementation differs as we do not use regularization in this work
+     *               the pairwise PN calculation remains quite similar. Check out SpaceHub at: https://github.com/YihanWangAstro/SpaceHub/
+     *
+     *
+     * Description: derived class from the abstract class GenericForce. Calculates the PN1 interaction between two particles
+     *              only called between the IMBH and compact object but there is nothing preventing the user from using this function
+     *              for any other set of particles.
+     *
+     *              NOTE: PN1 has even powers of C and results in relativistic precession.
+     *
+     -----------------------------------------------------------------------------*/
+
+
 
     class PN1Force : public GenericForce {
         public:
@@ -33,6 +107,20 @@ namespace falcon::forces {
             virtual void calculateForce(struct falcon::particles::particle &pi,
                     struct falcon::particles::particle &pj, falcon::Nbodysystem &system);
     };
+    
+    /*----------------------------------------------------------------------------
+     * Class: PN2Force
+     *
+     * Description: derived class from the abstract class GenericForce. Calculates the PN2 interaction between two particles
+     *              only called between the IMBH and compact object but there is nothing preventing the user from using this function
+     *              for any other set of particles.
+     *
+     *              NOTE: PN2 has even powers of C and results in relativistic precession.
+     *
+     -----------------------------------------------------------------------------*/
+
+
+
 
     class PN2Force : public GenericForce {
         public: 
@@ -42,6 +130,16 @@ namespace falcon::forces {
                     struct falcon::particles::particle &pj, falcon::Nbodysystem &system);
 
     };
+/*----------------------------------------------------------------------------
+     * Class: PN25Force
+     *
+     * Description: derived class from the abstract class GenericForce. Calculates the PN2.5 interaction between two particles
+     *              only called between the IMBH and compact object but there is nothing preventing the user from using this function
+     *              for any other set of particles.
+     *
+     *              NOTE: PN2 has odd powers of C and results in relativistic radiation.
+     *
+     -----------------------------------------------------------------------------*/
 
     class PN25Force : public GenericForce {
         public:
@@ -51,8 +149,21 @@ namespace falcon::forces {
                     struct falcon::particles::particle &pj, falcon::Nbodysystem &system);
     };
 
+
+    /* -----------------------------------------------------------------------------
+     * Function: NewtonianForce::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,falcon::Nbodysystem &system)
+     *
+     * Inputs: struct falcon::particles::particle (particle p1, first particle)
+     *         struct falcon::particles::particle (particle p2, second particle)
+     *         falcon::Nbodysystem (global variables, primarily used for softening values)
+     * Outputs: None (acceleration is written to the acc array inside the particle struct)         
+     * Calculates the pairwise Newtonian interacions between two particles. Full force calculation is only performed
+     * for IMBH and compact object. Softening is only implemented beween IMBH and DM particles.
+     -------------------------------------------------------------------------------*/
+
+
     inline void NewtonianForce::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,  
-            falcon::Nbodysystem &system) {
+                                                falcon::Nbodysystem &system) {
         real_t dr3, dr2, dr;
 
         real_t dx[3];
@@ -67,7 +178,6 @@ namespace falcon::forces {
             if((p1.id == 0) || (p2.id == 0) )
                 dr2 += system.get_soft()*system.get_soft();
         }
-        //dr2 += EPS*EPS;
 
         dr = sqrt(dr2);
         dr3 = dr * dr2;
@@ -77,9 +187,31 @@ namespace falcon::forces {
         p1.acc[1] += -dx[1] * dr;
         p1.acc[2] += -dx[2] * dr;
 
+    }
+ 
+    /* ------------------------------------------------------------------------
+     * Function: PN1Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,falcon::Nbodysystem &system)
+     *
+     * Inputs: struct falcon::particles::particle (particle p1, first particle)
+     *         struct falcon::particles::particle (particle p2, second particle)
+     *         falcon::Nbodysystem (global variables, primarily used for getting the speed of light)
+     *
+     * Outputs: None (acceleration is written to the acc_pn array inside the particle struct)
+     * Calculates the pairwise PN1 interacions between two particles.
+     *
+     * Depending on the step in the integration, W (the auxiliary velocity) is used instead of the velocity
+     * This is important to constuct an explicit Hamiltonian splitting scheme
+     *
+     * NOTE: PN forces are not symmetric. PN from 1->2 is not equal to PN 2->1. This can result in a shift of the particle
+     * from the Newtonian center of mass. To fix it, a temporary solution of removing the center of mass acceleration due to the PN
+     * forces is implmented at the end. Multiple tests confirm that this does not affect the overall results (thus our PN evolution is correct)
+     --------------------------------------------------------------------------*/
 
-    } 
-    inline void PN1Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,  falcon::Nbodysystem &system) {
+
+
+
+    inline void PN1Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,  
+                                          falcon::Nbodysystem &system) {
         real_t C_FACTOR = 1./pow(system.get_C(),type);
 
         real_t v1[3], v2[3];
@@ -106,12 +238,10 @@ namespace falcon::forces {
         real_t n[3] = {-dr[0]/r,-dr[1]/r,-dr[2]/r};
 
         real_t v1s = v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2];
-        //real_t v2s = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
         real_t v2s = v2[0] * v2[0] + v2[1] * v2[1] + v2[2] * v2[2];
         real_t v12 = v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
 
         real_t nv1 = n[0] * v1[0] + n[1] * v1[1] + n[2] * v1[2];
-        //real_t nv1 = n[0] * dv[0] + n[1] * dv[1] + n[2] * dv[2];
         real_t nv2 = n[0] * v2[0] + n[1] * v2[1] + n[2] * v2[2];
         real_t gmr1 = p1.mass / r;
         real_t gmr2 = p2.mass / r;
@@ -142,7 +272,22 @@ namespace falcon::forces {
 
 
     }
-    inline void PN2Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,  falcon::Nbodysystem &system) {
+
+
+/* ------------------------------------------------------------------------
+     * Function: PN2Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,falcon::Nbodysystem &system)
+     *
+     * Inputs: struct falcon::particles::particle (particle p1, first particle)
+     *         struct falcon::particles::particle (particle p2, second particle)
+     *         falcon::Nbodysystem (global variables, primarily used for getting the speed of light)
+     *
+     * Outputs: None (acceleration is written to the acc_pn array inside the particle struct)
+     * Calculates the pairwise PN2 interacions between two particles.
+     --------------------------------------------------------------------------*/
+
+
+    inline void PN2Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,  
+                                          falcon::Nbodysystem &system) {
         real_t C_FACTOR = 1./pow(system.get_C(),type);
 
         real_t v1[3], v2[3];
@@ -161,7 +306,6 @@ namespace falcon::forces {
         real_t dr[3] = {p2.pos[0]-p1.pos[0],p2.pos[1]-p1.pos[1],p2.pos[2]-p1.pos[2]};
         real_t dv[3] = {v2[0]-v1[0],v2[1]-v1[1],v2[2]-v1[2]};
 
-        //real_t dv[3] = {partj.vel[0]-parti.vel[0],partj.vel[1]-parti.vel[1],partj.vel[2]-parti.vel[2]};
 
         real_t dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
         real_t r2 = dr2;
@@ -170,14 +314,12 @@ namespace falcon::forces {
 
         real_t v1s = v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2];
         real_t v1q = v1s * v1s;
-        //real_t v2s = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
         real_t v2s = v2[0] * v2[0] + v2[1] * v2[1] + v2[2] * v2[2];
         real_t v2q = v2s * v2s;
         real_t v12 = v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
 
         real_t nv1 = n[0] * v1[0] + n[1] * v1[1] + n[2] * v1[2];
         real_t nv1s = nv1 * nv1;
-        //real_t nv1 = n[0] * dv[0] + n[1] * dv[1] + n[2] * dv[2];
         real_t nv2 = n[0] * v2[0] + n[1] * v2[1] + n[2] * v2[2];
         real_t nv2s = nv2 * nv2;
         real_t gmr1 = p1.mass / r;
@@ -223,7 +365,21 @@ namespace falcon::forces {
 
 
     }
-    inline void PN25Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,  falcon::Nbodysystem &system) {
+
+
+/* ------------------------------------------------------------------------
+     * Function: PN25Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,falcon::Nbodysystem &system)
+     *
+     * Inputs: struct falcon::particles::particle (particle p1, first particle)
+     *         struct falcon::particles::particle (particle p2, second particle)
+     *         falcon::Nbodysystem (global variables, primarily used for getting the speed of light)
+     *
+     * Outputs: None (acceleration is written to the acc_pn array inside the particle struct)
+     * Calculates the pairwise PN2.5 interacions between two particles. Results in raditation
+     --------------------------------------------------------------------------*/
+
+    inline void PN25Force::calculateForce(struct falcon::particles::particle &p1,struct falcon::particles::particle &p2,  
+                                            falcon::Nbodysystem &system) {
         real_t C_FACTOR = 1./pow(system.get_C(),type);
 
         real_t v1[3], v2[3];
