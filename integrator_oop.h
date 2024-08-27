@@ -1,3 +1,25 @@
+/*------------------------------------------------------------------------------------------------
+ * Filename: integrator_oop.h
+ *
+ * Purpose: Defines the integrator and associated helper functions 
+ *
+ * Main classes:
+ * class GenericHHSIntegrator (Abstract class for a Hamiltonian splitting integrator)
+ * 
+ * class HOLD_DKD (Derived class of GenericHHSIntegrator for the 2nd order hamiltonian splitting based HOLD 
+ *                  scheme. Uses the auxiliary velocity algorithm (Hellstrom and Mikkola 2010) for the in-
+ *                  tegration of non-separable post-Newtonian forces)
+ *
+ * Main functions:
+ * void split(real_t dt, struct falcon::particles::particle_system s,struct falcon::particles::particle_system *slow, struct falcon::particles::particle_system *fast)
+ * void kick_sf(struct falcon::particles::particle_system sinks, struct falcon::particles::particle_system sources, real_t dt, bool *includes_bh, size_t *parti_pn, size_t *partj_pn)
+ * void kick_self(struct falcon::particles::particle_system sinks, bool *includes_bh, size_t *parti_pn, size_t *partj_pn)
+ * void drift(struct falcon::particles::particle_system s, real_t dt)
+ * void kick_sync(struct falcon::particles::particle_system s, real_t dt)
+ * void kick_sync_w(struct falcon::particles::particle_system s, real_t dt)
+ * void findtimesteps(struct falcon::particles::particle_system s)
+ * virtual void step(size_t clevel, falcon::particles::particle_system total, real_t stime, real_t etime, real_t dt, bool calc_timestep)
+ -------------------------------------------------------------------------------------------------*/
 #pragma once
 #include<cmath>
 #include <limits>
@@ -84,12 +106,27 @@ namespace falcon::integrator {
             }
 
 
-            //void runSimulation();
+
+    };
+
+
+
+    class HOLD_DKD : public GenericHHSIntegrator {
+        protected:
+            virtual void step(size_t clevel, falcon::particles::particle_system total, 
+                    real_t stime, real_t etime, real_t dt, bool calc_timestep);
+
+
+        public:
+            HOLD_DKD(falcon::Nbodysystem *init_system, falcon::particles::particle_system *init_partsys) : GenericHHSIntegrator(init_system, init_partsys) {
+                handle_pn = true;
+            }
+
 
     };
 
     inline falcon::particles::particle_system GenericHHSIntegrator::join(struct falcon::particles::particle_system sinks, 
-            struct falcon::particles::particle_system sources) {
+                                                                         struct falcon::particles::particle_system sources) {
         struct falcon::particles::particle_system s = {0, nullptr, nullptr};
         if(sinks.n == 0)
             return sources;
@@ -117,8 +154,9 @@ namespace falcon::integrator {
 
     }
 
-    inline void GenericHHSIntegrator::split(real_t dt, struct falcon::particles::particle_system s,
-            falcon::particles::particle_system *slow, struct falcon::particles::particle_system *fast) {
+    inline void GenericHHSIntegrator::split(real_t dt, 
+                                            struct falcon::particles::particle_system s,
+                                            falcon::particles::particle_system *slow, struct falcon::particles::particle_system *fast) {
         size_t i = 0;
         struct falcon::particles::particle *left, *right;
         left = s.part;
@@ -167,7 +205,8 @@ namespace falcon::integrator {
 
     }
 
-    inline void GenericHHSIntegrator::kick_self(struct falcon::particles::particle_system sinks, bool *includes_bh, size_t *parti_pn, size_t *partj_pn) {
+    inline void GenericHHSIntegrator::kick_self(struct falcon::particles::particle_system sinks, 
+                                                bool *includes_bh, size_t *parti_pn, size_t *partj_pn) {
 
         f = new falcon::forces::NewtonianForce();
 
@@ -187,12 +226,6 @@ namespace falcon::integrator {
             }
 
 
-
-            /*for(size_t d=0;d<3;d++) {
-              sinks.part[i].acc[d] = acc[d];
-              sinks.part[i].acc_pn[d] = 0.0;
-              }*/
-
         }
 
         delete f;
@@ -202,7 +235,8 @@ namespace falcon::integrator {
 
 
     inline void GenericHHSIntegrator::kick_sf(struct falcon::particles::particle_system sinks, struct falcon::particles::particle_system sources,
-            real_t dt, bool *includes_bh, size_t *parti_pn, size_t *partj_pn) {
+                                              real_t dt, 
+                                              bool *includes_bh, size_t *parti_pn, size_t *partj_pn) {
         // sources -> sinks first
         // sinks -> sources second
 
@@ -227,9 +261,6 @@ namespace falcon::integrator {
 
             }
 
-            /*for(size_t d=0;d<3;d++) {
-              sinks.part[i].acc_pn[d] = 0.0;
-              }*/
 
         } 
 
@@ -356,20 +387,6 @@ namespace falcon::integrator {
     }
 
 
-    /* second order and can handle all PN terms*/
-    class HOLD_DKD : public GenericHHSIntegrator {
-        protected:
-            virtual void step(size_t clevel, falcon::particles::particle_system total, 
-                    real_t stime, real_t etime, real_t dt, bool calc_timestep);
-
-
-        public:
-            HOLD_DKD(falcon::Nbodysystem *init_system, falcon::particles::particle_system *init_partsys) : GenericHHSIntegrator(init_system, init_partsys) {
-                handle_pn = true;
-            }
-
-
-    };
 
     inline void HOLD_DKD::step(size_t clevel, falcon::particles::particle_system total,
             real_t stime, real_t etime, real_t dt, bool calc_timestep) {
