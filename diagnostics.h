@@ -1,3 +1,17 @@
+/* --------------------------------------------------------------------------------
+ * Filename: diagnostics.h
+ * Purpose: Return useful diagnostics about the N-body system
+ *
+ * Main functions:
+ * real_t system_kinetic_energy(const struct falcon::particles::particle_system *s)
+ *
+ * real_t system_potential_energy(struct falcon::particles::particle_system *s)
+ *
+ * void system_center_of_mass(const struct falcon::particles::particle_system *s, real_t *cmpos, real_t *cmvel)
+ *
+ * --------------------------------------------------------------------------------*/
+
+
 #ifndef diagnostics_h
 #define diagnostics_h
 #include <math.h>
@@ -8,17 +22,30 @@
 
 namespace falcon::diagnostics {
 
+    /* --------------------------------------------------------------------------
+     * Function: real_t system_kinetic_energy(const struct falcon::particles::particle_system *s)
+     * 
+     * Input: falcon::particles::particle_system * (pointer to particle system)
+     * Output: Kinetic energy (of type real_t)
+     * -------------------------------------------------------------------------- */
+
+
     real_t system_kinetic_energy(const struct falcon::particles::particle_system *s) {
         real_t kin_e = 0;
 #pragma omp parallel for reduction(+:kin_e)
         for(size_t i=0;i<s->n;i++) {
-            /* use specific energy for the test mass on circular orbit*/
-            //kin_e += 0.5 * (s.part[i].vel[0] * s.part[i].vel[0] + s.part[i].vel[1] * s.part[i].vel[1] + s.part[i].vel[2] * s.part[i].vel[2]);
             kin_e += 0.5 * s->part[i].mass * (s->part[i].vel[0] * s->part[i].vel[0] + s->part[i].vel[1] * s->part[i].vel[1] + s->part[i].vel[2] * s->part[i].vel[2]);
         }
         return kin_e;
 
     }
+    /*--------------------------------------------------------------------------
+     * Function: real_t system_potential_energy(struct falcon::particles::particle_system *s)
+     *
+     * Input: falcon::particles::particle_system * (pointer to particle system)
+     * Output: Potential energy (of type real_t)
+     ---------------------------------------------------------------------------*/
+
     real_t system_potential_energy(struct falcon::particles::particle_system *s) {
         real_t pot_e = 0;
         for(size_t i=0;i<s->n;i++) {
@@ -40,7 +67,6 @@ namespace falcon::diagnostics {
         }
 #pragma omp parallel for reduction(+:pot_e)
         for(size_t i=0; i<s->n;i++) {
-            /*for the test particle in circular orbit, remove the mass to calculate the specific energy*/
 
             pot_e += 0.5 * s->part[i].mass * s->part[i].pot;
 
@@ -49,6 +75,14 @@ namespace falcon::diagnostics {
         return pot_e;
 
     }
+    
+    /*-------------------------------------------------------------------
+     * Function: system_center_of_mass(const struct falcon::particles::particle_system *s, real_t *cmpos, real_t *cmvel)
+     * 
+     * Inputs: falcon::particles::particle_system* (pointer to particle system), real_t * (center of mass position array), real_t *(center of mass velocity array)
+     * Output: void (center of mass position and vel are written to input arrays)
+     ------------------------------------------------------------------*/
+
     void system_center_of_mass(const struct falcon::particles::particle_system *s, real_t *cmpos, real_t *cmvel) {
         real_t mass = 0., pos[3] = { 0., 0., 0. }, vel[3] = {0., 0., 0.};
 #pragma omp parallel for reduction(+:pos,vel,mass)
