@@ -46,6 +46,37 @@
 
 namespace falcon::integrator {
 
+    /* -------------------------------------------------------------------------
+     * Class: GenericHHSIntegrator
+     * 
+     * Description: 
+     * Abstract class that handles all of the main functions including kick, drift, split, and join functions
+     * required by any hamiltonian splitting integrator. Each specific type of Hamiltonian splitting integrator
+     * should inherit this class and define the virtual function step using the kick, drift, and split operations.
+     *
+     *
+     * Members: 
+     * falcon::Nbodysystem *system (Pointer to Nbodysystem containing all global values)
+     * falcon::particles::particle_system *partsys (Pointer to the particle system)
+     * falcon::forces::GenericForce *f (Pointer to the force class)
+     * bool handle_pn {} (Can this particular integrator handle PN forces)
+     *
+     * Member functions: 
+     * falcon::particles::particle_system join(struct falcon::particles::particle_system sinks, struct falcon::particles::particle_system sources)
+     * void split(real_t dt, struct falcon::particles::particle_system s, struct falcon::particles::particle_system *slow, struct falcon::particles::particle_system *fast)
+     * void kick_sf(struct falcon::particles::particle_system sinks, struct falcon::particles::particle_system sources, real_t dt, bool *includes_bh, size_t *parti_pn, size_t *partj_pn)
+     * void kick_self(struct falcon::particles::particle_system sinks, bool *includes_bh, size_t *parti_pn, size_t *partj_pn)
+     * void drift(struct falcon::particles::particle_system s, real_t dt)
+     * void kick_sync(struct falcon::particles::particle_system s, real_t dt)
+     * void kick_sync_w(struct falcon::particles::particle_system s, real_t dt)
+     * void kick_pn(struct falcon::particles::particle_system s1,struct falcon::particles::particle_system s2, size_t pi, size_t pj, bool use_w)
+     * void findtimesteps(struct falcon::particles::particle_system s)
+     * virtual void step(size_t clevel, falcon::particles::particle_system total, real_t stime, real_t etime, real_t dt, bool calc_timestep)
+     *
+     ---------------------------------------------------------------------------*/
+
+
+
     class GenericHHSIntegrator {
         protected:
             /*it should take an Nbodysystem containing the global params,
@@ -108,7 +139,24 @@ namespace falcon::integrator {
 
 
     };
-
+    /* -------------------------------------------------------------------------
+     * Class: HOLD_DKD
+     * 
+     * Description: 
+     * Derived class of GenericHHSIntegrator that evolves the system using a 2nd order HOLD scheme
+     * in a Drift-Kick-Drift form. The original integrator was first published in Pelupessy et al. (2012)
+     * and this current version has been inspired by publicly available N-body code Taichi (Zhu et al. 2021, Mukherjee et al. 2021,2023)
+     * The key difference in this version is that the auxiliary velocity algorithm is used in conjuction with HOLD splitting
+     * so that PN terms can be integrated properly.
+     *
+     * Members: 
+     * (check description of GenericHHSIntegrator above)
+     * Member functions: 
+     * (check description of GenericHHSIntegrator above)
+     * virtual void step(size_t clevel, falcon::particles::particle_system total, real_t stime, real_t etime, real_t dt, bool calc_timestep)
+     *                              -> this virtual function is actually defined in this derived class
+     *                              following the HOLD splitting scheme (Pelupessy et al. 2012)
+     ---------------------------------------------------------------------------*/
 
 
     class HOLD_DKD : public GenericHHSIntegrator {
@@ -124,6 +172,18 @@ namespace falcon::integrator {
 
 
     };
+    
+
+    /* -------------------------------------------------------------------------
+     * Function: falcon::particles::particle_system GenericHHSIntegrator::join
+     *
+     * Inputs: falcon::particles::particle_system (sinks/particles where forces are calculated)
+     *         falcon::particles::particle_system (sources/particles from which forces are calculated)
+     *
+     * Output: falcon::particles::particle_system
+     *
+     * Takes two disjoint particle subsystems and combines them
+     -----------------------------------------------------------------------------*/
 
     inline falcon::particles::particle_system GenericHHSIntegrator::join(struct falcon::particles::particle_system sinks, 
                                                                          struct falcon::particles::particle_system sources) {
@@ -153,6 +213,22 @@ namespace falcon::integrator {
         return s;
 
     }
+    
+
+    /* -----------------------------------------------------------------------------
+     * Function: GenericHHSIntegrator::split
+     * 
+     * Inputs: real_t (threshold timestep to split the system on)
+     *         falcon::particles::particle_system (total system)
+     *         falcon::particles::particle_system * (slow subsystem containing particles having timestep larger than dt)
+     *         falcon::particles::particle_system * (fast subsystem containing particles having timestep faster than dt)
+     * Output: None
+     *
+     * Splits the particle system s into a slow and a fast subsystem depending on the threshold timestep dt.
+     * Particles in the slow subsystem have timesteps larger than dt 
+     * whereas particles in fast subsystem have timesteps smaller than dt
+     -------------------------------------------------------------------------------*/
+
 
     inline void GenericHHSIntegrator::split(real_t dt, 
                                             struct falcon::particles::particle_system s,
@@ -204,6 +280,25 @@ namespace falcon::integrator {
             ENDRUN("split error 2\n");
 
     }
+
+    /* -------------------------------------------------------------------------------
+     * Function: GenericHHSIntegrator::kick_self
+     *
+     * Inputs: falcon::particles::particle_system (sinks/sources to calculate the forces from/to)
+     *         bool * (see if the subsystem hosts the IMBH-CO pair)
+     *         size_t *(index of the first particle in the IMBH-CO pair)
+     *         size_t * (index of the second particle in the IMBH-CO pair)
+     *
+     * Outputs: None
+     *
+     *
+     * The name of the function is somewhat of a misnomer. This is the main function that calls the newtonian
+     * force calculation class. Full interactions are only calculated for the IMBH and the compact object which 
+     * MUST BE THE FIRST AND SECOND PARTICLES IN THE INITIAL CONDITIONS FILE!
+     *
+     * Ideally the next function kick_sf and this function can be refractored into a single function
+     * Work is in progress to do that.
+     ---------------------------------------------------------------------------------*/
 
     inline void GenericHHSIntegrator::kick_self(struct falcon::particles::particle_system sinks, 
                                                 bool *includes_bh, size_t *parti_pn, size_t *partj_pn) {
