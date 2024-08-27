@@ -29,16 +29,18 @@ int main()
     */
     /*global nbodysystem handler, handles global variables like file name, units, softening, etc*/
     auto [input_fname, restart_val, eta, t_end, dt, use_pn, use_precession, use_radiation, c, soft] = falcon::io::read_config(); 
-    falcon::Nbodysystem system {eta, soft,0,t_end, dt, input_fname, use_pn, use_precession, use_radiation};
+    falcon::Nbodysystem system {eta, soft,0,t_end, dt, input_fname, use_pn, use_precession, use_radiation, c};
     
     struct falcon::particles::particle_system mainsys; 
     
     auto [snapnum, t_now] = falcon::io::load_data(&mainsys, restart_val, input_fname);
     
-
-    falcon::diagnostics::print_system_energy_diagnostics(&mainsys);
+    std::cout<<"CoM_x \t CoM_y \t CoM_z \t Energy"<<std::endl;
+    std::cout<<"----------------------------------------------------------"<<std::endl;
     falcon::diagnostics::print_system_com_diagnostics(&mainsys);
 
+    falcon::diagnostics::print_system_energy_diagnostics(&mainsys);
+    
     falcon::integrator::GenericHHSIntegrator *integrator = new falcon::integrator::HOLD_DKD(&system,&mainsys);  
      
     if(t_end > 0)
@@ -48,9 +50,10 @@ int main()
             
             //double start_time = omp_get_wtime();
             fflush(stdout);
-            falcon::diagnostics::print_system_energy_diagnostics(&mainsys);
             falcon::diagnostics::print_system_com_diagnostics(&mainsys);
 
+            falcon::diagnostics::print_system_energy_diagnostics(&mainsys);
+            
             falcon::io::write_hdf5_snapshot(snapnum, t_now,mainsys);
             snapnum++;
 
