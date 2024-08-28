@@ -1,16 +1,24 @@
-OPT += -DEXTERNAL
+#enable this for additional debugging
+#OPT += -DDEBUG
 
-CXX = icpx -Ofast -ffast-math -march=native -mavx2 -funroll-loops -std=c++17 -Wfatal-errors -fopenmp#-O3 -fp-model precise -march=core-avx2 -fopenmp -mavx -mavx2 -mfma #-ltcmalloc -mavx512fz
 
-INCL += -I/usr/local/include -DH5_USE_16_API -I./ 
-INCL += -L/usr/local/lib -lhdf5 -lz #-ltbb -D_GLIBCXX_USE_TBB_PAR_BACKEND=0
+CXX = icpx # change it to your favorite compiler
+CXXFLAGS = -std=c++17 -Ofast -ffast-math -march=native -mavx2 -funroll-loops -Wfatal-errors -fopenmp
+
+H5DIR=/usr/local/include
+BOOSTDIR=./
+
+H5LIB=/usr/local/lib
+
+INCL += -I$(H5DIR) -DH5_USE_16_API -I$(BOOSTDIR) 
+INCL += -L$(H5LIB) -lhdf5 -lz #-ltbb -D_GLIBCXX_USE_TBB_PAR_BACKEND=0
 
 
 all:
 	@make falcon
 
 falcon: main.cxx
-	$(CXX) $? -o $@ $(OPT) $(INCL)
+	$(CXX) $(CXXFLAGS) $? -o $@ $(OPT) $(INCL)
 
 clean:
-	$(RM) ./*.o ./falcon ./fmm ./*~
+	$(RM) ./*.o ./falcon 
