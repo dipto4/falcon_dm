@@ -109,6 +109,8 @@ time = data['Header'].attrs['Time']
 
 If you do encounter an issue, please contact me at dipto@cmu.edu or open an issue on this github page.
 
+### Citations
+
 If you use this code, please cite Mukherjee et al. (2024) 
 
 ```
