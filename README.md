@@ -107,6 +107,8 @@ time = data['Header'].attrs['Time']
 1. In case of PN term usage, the energy is not going to be conserved exactly (using PN precession/radiation terms). This is a result of how the energy is computed rather than any issue with the code/integrator. We plan on using a different energy calculation criterion to fix this issue.
 2. Due to the approximated force calculation, energy/momentum is not going to be conserved exactly. This is again, not an issue with the code/integrator but rather how the energy/momentum is calculated. The code has been validated against other publicly available N-body codes and we find that there are no differences with other codes with regards to the dynamics of the central binary.
 
+If you do encounter an issue, please contact me at dipto@cmu.edu or open an issue on this github page.
+
 If you use this code, please cite Mukherjee et al. (2024) 
 
 ```
