@@ -34,12 +34,11 @@
 #include <cstring>
 #include <cstdlib>
 
-
-#include "falcon.h"
-#include "io.h"
-#include "integrator_oop.h"
-#include "diagnostics.h"
-#include "particle.h"
+#include <src/falcon.hpp>
+#include <src/io.hpp>
+#include <src/integrator_oop.hpp>
+#include <src/diagnostics.hpp>
+#include <src/particle.hpp>
 using namespace std;
 
 int main()
