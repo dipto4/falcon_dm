@@ -62,6 +62,50 @@ dt = 0.01
 c = 10065.3201203821918170
 
 ```
+The initial conditions file must be either in ASCII format or HDF5 format (for restarts). If restarting, the snapshot should be named as ```snapshot_*.hdf5```.
+
+When using an ASCII file, it is important to note that the data must be in the following format:
+```Mass Posx Posy Posz Velx Vely Velz```. Check out the ```examples/``` directory for a few test ICs.
+
+#### Important note:
+The first row of the initial conditions file MUST contain the IMBH and the second row MUST contain the compact object. Otherwise the code is going to produce incorrect outputs.
+
+If the code executes properly, the following data should be printed to the standard output every ```dt``` units:
+``` CoM_x CoM_y CoM_z TotalEnergy```
+The total energy is computed as the total mechanical energy (potential + kinetic) of the system. In case of PN term usage, this is not going to be conserved exactly (using PN precession/radiation terms). This is a result of how the energy is computed rather than any issue with the code/integrator.
+
+The code will output one more line after that which indicates the amount of wall-clock time spent computing the step. 
+
+### Reading the snapshots
+The code outputs the snapshots in HDF5 format. The user may choose to read the snapshots in python using ```h5py``` module. For example a sample script may look like the following:
+
+```
+import h5py
+import numpy as np
+
+data = h5py.File('snapshot_0.hdf5','r')
+
+m = np.array(data['Mass']) # reads from the mass column
+x = np.array(data['Posx']) # reads from the Posx data column
+y = np.array(data['Posy']) # reads from the Posy data column
+z = np.array(data['Posz']) # reads from the Posz data column
+vx = np.array(data['Velx']) # reads from the Velx data column
+vy = np.array(data['Vely']) # reads from the Vely data column
+vz = np.array(data['Velz']) # reads from the Velz data column
+
+# other data attributes are available such as the potential of each particle
+pot = np.array(data['Potential'])
+```
+It is important to note that the order of the particles in the snapshot is preserved. Thus the 3rd particle in the IC file is the same as the 3rd particle in say snapshot 56.
+
+Additionally, if the user wants to read in the simulation time, they should add the following line to their script
+```
+time = data['Header'].attrs['Time']
+```
+
+### Known issues
+1. In case of PN term usage, the energy is not going to be conserved exactly (using PN precession/radiation terms). This is a result of how the energy is computed rather than any issue with the code/integrator. We plan on using a different energy calculation criterion to fix this issue.
+2. Due to the approximated force calculation, energy/momentum is not going to be conserved exactly. This is again, not an issue with the code/integrator but rather how the energy/momentum is calculated. The code has been validated against other publicly available N-body codes and we find that there are no differences with other codes with regards to the dynamics of the central binary.
 
 If you use this code, please cite Mukherjee et al. (2024) 
 
