@@ -9,7 +9,7 @@ Features:
 If you use this code, please cite Mukherjee et al. (2024) 
 
 ```
-@ARTICLE{2024MNRAS.tmp.1946M,
+@ARTICLE{2024MNRASMukherjee_FalconDM,
        author = {{Mukherjee}, Diptajyoti and {Holgado}, A. Miguel and {Ogiya}, Go and {Trac}, Hy},
         title = "{Examining the effects of Dark Matter spikes on eccentric Intermediate Mass Ratio Inspirals using N-body simulations}",
       journal = {\mnras},
