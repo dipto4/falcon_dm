@@ -70,6 +70,8 @@ The initial conditions file must be either in ASCII format or HDF5 format (for r
 When using an ASCII file, it is important to note that the data must be in the following format:
 ```Mass Posx Posy Posz Velx Vely Velz```. Check out the ```examples/``` directory for a few test ICs.
 
+Copy the executable, the initial conditions file, and the ```config.ini``` file to a directory and type ```./falcon``` to run the code.
+
 #### Important note:
 The first row of the initial conditions file MUST contain the IMBH and the second row MUST contain the compact object. Otherwise the code is going to produce incorrect outputs.
 
