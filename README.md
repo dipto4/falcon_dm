@@ -24,8 +24,11 @@ Lightweight N-body code written in C++, specifically tuned for simulations of In
 3. HDF5 library (for reading and writing snapshots)
 
 ### Installation
-1. Navigate to the directory and modify the Makefile according to the compiler suite present on your workstation along with any compiler flags you want. Note that ```-fopenmp``` flags must be enabled as the ```OpenMP``` library is used to calculate the time spent during integration (other than the energy calculation parallelization
-2. Ensure that the relevant directories for the HDF5 and Boost libraries are included properly in the Makefile
+Download the Boost library from here: https://www.boost.org/
+Download the HDF5 library from here: https://github.com/HDFGroup/hdf5
+
+1. Navigate to the directory and modify the Makefile according to the compiler suite present on your workstation along with any compiler flags you want. Note that ```-fopenmp``` flags must be enabled as the ```OpenMP``` library is used to calculate the time spent during integration (other than the energy calculation parallelization. If you have few particles, using a single core will improve performance. ```OMP_NUM_THREADS=1``` can improve performance. 
+2. Ensure that the relevant directories for the HDF5 and Boost libraries are included properly in the Makefile. 
 3. Type ```make```. This should create an executable called ```falcon```. 
 
 ### Usage
