@@ -5,12 +5,13 @@
 CXX = icpx # change it to your favorite compiler
 CXXFLAGS = -std=c++17 -Ofast -ffast-math -march=native -mavx2 -funroll-loops -Wfatal-errors -fopenmp
 
+FALCONDIR=./
 H5DIR=/usr/local/include
 BOOSTDIR=./
 
 H5LIB=/usr/local/lib
 
-INCL += -I$(H5DIR) -DH5_USE_16_API -I$(BOOSTDIR) 
+INCL += -I$(H5DIR) -DH5_USE_16_API -I$(BOOSTDIR) -I$(FALCONDIR) 
 INCL += -L$(H5LIB) -lhdf5 -lz #-ltbb -D_GLIBCXX_USE_TBB_PAR_BACKEND=0
 
 
